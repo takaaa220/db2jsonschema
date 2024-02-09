@@ -2,6 +2,7 @@ package mysql
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -28,9 +29,28 @@ func Gen(c ConnectionSetting) error {
 		return err
 	}
 
-	for _, table := range tables {
-		fmt.Println(table)
+	jsonTableSchemas := []JSONSchemaTable{}
+	for _, t := range tables {
+		schema, err := genTableJSONSchema(t)
+		if err != nil {
+			return err
+		}
+
+		jsonTableSchemas = append(jsonTableSchemas, *schema)
 	}
+
+	allTablesSchema, err := genAllTablesJSONSchema(jsonTableSchemas)
+	if err != nil {
+		return err
+	}
+
+	b, err := json.Marshal(allTablesSchema)
+	if err != nil {
+		return err
+	}
+
+	// TODO: output to file
+	fmt.Println(string(b))
 
 	return nil
 }
@@ -190,4 +210,113 @@ func NewColumnType(columnType string) (ColumnType, error) {
 	}
 
 	return "", fmt.Errorf("unsupported type: %s", columnType)
+}
+
+type JSONSchemaTable struct {
+	Schema     string                      `json:"$schema"`
+	Type       JSONSchemaType              `json:"type"`
+	Title      string                      `json:"title"`
+	Properties map[string]JSONSchemaColumn `json:"properties"`
+	Required   []string                    `json:"required"`
+}
+
+type JSONSchemaColumn struct {
+	Type      JSONSchemaType `json:"type"`
+	MaxLength int            `json:"maxLength,omitempty"`
+	Enum      []string       `json:"enum,omitempty"`
+	Format    string         `json:"format,omitempty"`
+}
+
+type JSONSchemaType string
+
+const (
+	JSONSchemaTypeString  JSONSchemaType = "string"
+	JSONSchemaTypeInteger JSONSchemaType = "integer"
+	JSONSchemaTypeNumber  JSONSchemaType = "number"
+	JSONSchemaTypeBoolean JSONSchemaType = "boolean"
+	JSONSchemaTypeObject  JSONSchemaType = "object"
+	JSONSchemaTypeArray   JSONSchemaType = "array"
+	JSONSchemaTypeNull    JSONSchemaType = "null"
+)
+
+func genTableJSONSchema(table Table) (*JSONSchemaTable, error) {
+	schema := JSONSchemaTable{
+		Schema:     "http://json-schema.org/draft-07/schema#",
+		Type:       "object",
+		Title:      table.Name,
+		Properties: map[string]JSONSchemaColumn{},
+		Required:   []string{},
+	}
+
+	for _, dbColumn := range table.Columns {
+		t, err := convertIntoJSONSchemaType(dbColumn.Type)
+		if err != nil {
+			return nil, err
+		}
+
+		column := JSONSchemaColumn{
+			Type:      t,
+			MaxLength: dbColumn.MaxLength,
+			Enum:      dbColumn.Enum,
+		}
+
+		if len(dbColumn.Enum) != 0 {
+			column.Enum = dbColumn.Enum
+		}
+
+		if dbColumn.MaxLength > 0 {
+			column.MaxLength = dbColumn.MaxLength
+		}
+
+		if dbColumn.Type == ColumnTypeDate {
+			column.Format = "date"
+		}
+
+		if dbColumn.Type == ColumnTypeDatetime {
+			column.Format = "date-time"
+		}
+
+		if !dbColumn.Nullable {
+			schema.Required = append(schema.Required, dbColumn.Name)
+		}
+
+		schema.Properties[dbColumn.Name] = column
+	}
+
+	return &schema, nil
+}
+
+func convertIntoJSONSchemaType(t ColumnType) (JSONSchemaType, error) {
+	switch t {
+	case ColumnTypeInteger:
+		return "integer", nil
+	case ColumnTypeFloat:
+		return "number", nil
+	case ColumnTypeBoolean:
+		return "boolean", nil
+	case ColumnTypeString, ColumnTypeEnum, ColumnTypeDate, ColumnTypeDatetime, ColumnTypeJSON:
+		return "string", nil
+	default:
+		return "", fmt.Errorf("unsupported type: %s", t)
+	}
+}
+
+type AllTablesJSONSchema struct {
+	Schema     string                     `json:"$schema"`
+	Type       JSONSchemaType             `json:"type"`
+	Properties map[string]JSONSchemaTable `json:"properties"`
+}
+
+func genAllTablesJSONSchema(tables []JSONSchemaTable) (AllTablesJSONSchema, error) {
+	schema := AllTablesJSONSchema{
+		Schema:     "http://json-schema.org/draft-07/schema#",
+		Type:       "object",
+		Properties: map[string]JSONSchemaTable{},
+	}
+
+	for _, t := range tables {
+		schema.Properties[t.Title] = t
+	}
+
+	return schema, nil
 }
