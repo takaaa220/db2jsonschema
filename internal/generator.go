@@ -24,7 +24,7 @@ func (g *generator) Gen() ([]byte, error) {
 		return nil, err
 	}
 
-	jsonTableSchemas := []JSONSchemaTable{}
+	jsonTableSchemas := []JSONSchemaObject{}
 	for _, t := range tables {
 		schema, err := g.genTableJSONSchema(t)
 		if err != nil {
@@ -47,21 +47,19 @@ func (g *generator) Gen() ([]byte, error) {
 	return b, nil
 }
 
-type JSONSchemaTable struct {
-	Schema     string                      `json:"$schema,omitempty"`
-	Type       JSONSchemaType              `json:"type,omitempty"`
-	Title      string                      `json:"title,omitempty"`
-	Properties map[string]JSONSchemaColumn `json:"properties,omitempty"`
-	Required   []string                    `json:"required,omitempty"`
-}
-
-type JSONSchemaColumn struct {
-	Type        JSONSchemaType `json:"type"`
-	MaxLength   int            `json:"maxLength,omitempty"`
-	Enum        []string       `json:"enum,omitempty"`
-	Format      string         `json:"format,omitempty"`
-	Pattern     string         `json:"pattern,omitempty"`
-	Description string         `json:"description,omitempty"`
+type JSONSchemaObject struct {
+	Schema      string                      `json:"$schema,omitempty"`
+	Type        JSONSchemaType              `json:"type,omitempty"`
+	Title       string                      `json:"title,omitempty"`
+	Description string                      `json:"description,omitempty"`
+	Properties  map[string]JSONSchemaObject `json:"properties,omitempty"`
+	Definitions map[string]JSONSchemaObject `json:"definitions,omitempty"`
+	Required    []string                    `json:"required,omitempty"`
+	MaxLength   int                         `json:"maxLength,omitempty"`
+	Enum        []string                    `json:"enum,omitempty"`
+	Format      string                      `json:"format,omitempty"`
+	Pattern     string                      `json:"pattern,omitempty"`
+	Items       *JSONSchemaObject           `json:"items,omitempty"`
 }
 
 type JSONSchemaType string
@@ -76,11 +74,11 @@ const (
 	JSONSchemaTypeNull    JSONSchemaType = "null"
 )
 
-func (g *generator) genTableJSONSchema(table Table) (*JSONSchemaTable, error) {
-	schema := JSONSchemaTable{
-		Type:       "object",
+func (g *generator) genTableJSONSchema(table Table) (*JSONSchemaObject, error) {
+	schema := JSONSchemaObject{
+		Type:       JSONSchemaTypeObject,
 		Title:      table.Name,
-		Properties: map[string]JSONSchemaColumn{},
+		Properties: map[string]JSONSchemaObject{},
 		Required:   []string{},
 	}
 
@@ -90,7 +88,7 @@ func (g *generator) genTableJSONSchema(table Table) (*JSONSchemaTable, error) {
 			return nil, err
 		}
 
-		column := JSONSchemaColumn{
+		column := JSONSchemaObject{
 			Type:      t,
 			MaxLength: dbColumn.MaxLength,
 			Enum:      dbColumn.Enum,
@@ -126,41 +124,30 @@ func (g *generator) genTableJSONSchema(table Table) (*JSONSchemaTable, error) {
 func convertIntoJSONSchemaType(t ColumnType) (JSONSchemaType, error) {
 	switch t {
 	case ColumnTypeInteger:
-		return "integer", nil
+		return JSONSchemaTypeInteger, nil
 	case ColumnTypeFloat:
-		return "number", nil
+		return JSONSchemaTypeNumber, nil
 	case ColumnTypeBoolean:
-		return "boolean", nil
+		return JSONSchemaTypeBoolean, nil
 	case ColumnTypeString, ColumnTypeEnum, ColumnTypeDate, ColumnTypeDatetime, ColumnTypeJSON:
-		return "string", nil
+		return JSONSchemaTypeString, nil
 	default:
 		return "", fmt.Errorf("unsupported type: %s", t)
 	}
 }
 
-type AllTablesJSONSchema struct {
-	Schema      string                          `json:"$schema"`
-	Type        JSONSchemaType                  `json:"type"`
-	Properties  map[string]TableArrayJSONSchema `json:"properties"`
-	Definitions map[string]JSONSchemaTable      `json:"definitions,omitempty"`
-}
-
-type TableArrayJSONSchema struct {
-	Type  string          `json:"type"`
-	Items JSONSchemaTable `json:"items"`
-}
-
-func (g *generator) genAllTablesJSONSchema(tables []JSONSchemaTable) (AllTablesJSONSchema, error) {
-	schema := AllTablesJSONSchema{
+func (g *generator) genAllTablesJSONSchema(tables []JSONSchemaObject) (JSONSchemaObject, error) {
+	schema := JSONSchemaObject{
 		Schema:     "http://json-schema.org/draft-07/schema#",
-		Type:       "object",
-		Properties: map[string]TableArrayJSONSchema{},
+		Type:       JSONSchemaTypeObject,
+		Properties: map[string]JSONSchemaObject{},
 	}
 
 	for _, t := range tables {
-		schema.Properties[t.Title] = TableArrayJSONSchema{
-			Type:  "array",
-			Items: t,
+		t := t
+		schema.Properties[t.Title] = JSONSchemaObject{
+			Type:  JSONSchemaTypeArray,
+			Items: &t,
 		}
 	}
 
