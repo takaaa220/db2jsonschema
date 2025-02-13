@@ -63,7 +63,8 @@ func getDBSchema(db *sql.DB, database string) ([]Table, error) {
 		DATA_TYPE,
 		COLUMN_TYPE,
 		IS_NULLABLE,
-		CHARACTER_MAXIMUM_LENGTH
+		CHARACTER_MAXIMUM_LENGTH,
+		COLUMN_DEFAULT
 	FROM INFORMATION_SCHEMA.COLUMNS
 	WHERE TABLE_SCHEMA = "%s"`, database)
 
@@ -81,8 +82,9 @@ func getDBSchema(db *sql.DB, database string) ([]Table, error) {
 
 	for rows.Next() {
 		var tableName, columnName, dataType, columnType, isNullable string
+		var columnDefault *string
 		var maxLength sql.NullInt64
-		err = rows.Scan(&tableName, &columnName, &dataType, &columnType, &isNullable, &maxLength)
+		err = rows.Scan(&tableName, &columnName, &dataType, &columnType, &isNullable, &maxLength, &columnDefault)
 		if err != nil {
 			return nil, err
 		}
@@ -95,6 +97,7 @@ func getDBSchema(db *sql.DB, database string) ([]Table, error) {
 		column := Column{
 			Name:     columnName,
 			Nullable: isNullable == "YES",
+			Default:  columnDefault,
 		}
 
 		t, err := NewColumnType(columnType)
@@ -157,6 +160,7 @@ type Column struct {
 	MaxLength int
 	Enum      []string
 	Unsigned  bool
+	Default   *string
 }
 
 func (c Column) String() string {
@@ -280,7 +284,7 @@ func genTableJSONSchema(table Table) (*JSONSchemaTable, error) {
 			column.Format = "date-time"
 		}
 
-		if !dbColumn.Nullable {
+		if !dbColumn.Nullable && dbColumn.Default == nil {
 			schema.Required = append(schema.Required, dbColumn.Name)
 		}
 
