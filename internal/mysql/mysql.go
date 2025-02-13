@@ -205,6 +205,10 @@ func NewColumnType(columnType string) (ColumnType, error) {
 		return ColumnTypeDate, nil
 	}
 
+	if strings.Contains(columnType, "timestamp") {
+		return ColumnTypeDatetime, nil
+	}
+
 	if strings.Contains(columnType, "json") {
 		return ColumnTypeJSON, nil
 	}
