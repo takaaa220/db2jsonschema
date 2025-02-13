@@ -28,7 +28,7 @@ type Column struct {
 	Type      ColumnType
 	Nullable  bool
 	MaxLength int
-	Enum      []string
+	Enum      []any
 	Unsigned  bool
 	Default   *string
 }

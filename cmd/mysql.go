@@ -49,7 +49,7 @@ func init() {
 	user = mysqlCmd.Flags().StringP("user", "u", "root", "mysql	user")
 	password = mysqlCmd.Flags().StringP("password", "p", "", "mysql password")
 	database = mysqlCmd.Flags().StringP("database", "d", "information_schema", "mysql database")
-	dateTimePattern = mysqlCmd.Flags().StringP("datetime-pattern", "", "[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}", "datetime pattern")
+	dateTimePattern = mysqlCmd.Flags().StringP("datetime-pattern", "", internal.DateTimePattern, "datetime pattern")
 
 	rootCmd.AddCommand(mysqlCmd)
 }

@@ -56,7 +56,7 @@ type JSONSchemaObject struct {
 	Definitions map[string]JSONSchemaObject `json:"definitions,omitempty"`
 	Required    []string                    `json:"required,omitempty"`
 	MaxLength   int                         `json:"maxLength,omitempty"`
-	Enum        []string                    `json:"enum,omitempty"`
+	Enum        []any                       `json:"enum,omitempty"`
 	Format      string                      `json:"format,omitempty"`
 	Pattern     string                      `json:"pattern,omitempty"`
 	Items       *JSONSchemaObject           `json:"items,omitempty"`
@@ -101,6 +101,13 @@ func (g *generator) genTableJSONSchema(table Table) (*JSONSchemaObject, error) {
 		}
 		var optionalColumns []JSONSchemaObject
 
+		if t == JSONSchemaTypeBoolean {
+			optionalColumns = append(optionalColumns, JSONSchemaObject{
+				Type: JSONSchemaTypeInteger,
+				Enum: []any{0, 1},
+			})
+		}
+
 		if len(dbColumn.Enum) != 0 {
 			column.Enum = dbColumn.Enum
 		}
@@ -127,8 +134,8 @@ func (g *generator) genTableJSONSchema(table Table) (*JSONSchemaObject, error) {
 		schema.Properties[dbColumn.Name] = JSONSchemaObject{
 			AnyOf: append(
 				[]JSONSchemaObject{
-					column,
 					{Ref: "#/definitions/" + TestFixturesRaw},
+					column,
 				},
 				optionalColumns...,
 			),
@@ -179,3 +186,7 @@ func (g *generator) genAllTablesJSONSchema(tables []JSONSchemaObject) (JSONSchem
 
 	return schema, nil
 }
+
+const (
+	DateTimePattern = "[0-9]{4}-[0-9]{2}-[0-9]{2}[ T][0-9]{2}:[0-9]{2}:[0-9]{2}Z?"
+)

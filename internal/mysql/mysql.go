@@ -103,7 +103,10 @@ func getDBSchema(db *sql.DB, database string) ([]internal.Table, error) {
 				s[i] = strings.Trim(s[i], "'")
 			}
 
-			column.Enum = s
+			column.Enum = make([]any, len(s))
+			for i, v := range s {
+				column.Enum[i] = v
+			}
 		}
 
 		table.Columns = append(table.Columns, column)
@@ -120,16 +123,16 @@ func getDBSchema(db *sql.DB, database string) ([]internal.Table, error) {
 }
 
 func NewColumnType(columnType string) (internal.ColumnType, error) {
+	if columnType == "tinyint(1)" {
+		return internal.ColumnTypeBoolean, nil
+	}
+
 	if strings.Contains(columnType, "int") {
 		return internal.ColumnTypeInteger, nil
 	}
 
 	if strings.Contains(columnType, "float") || strings.Contains(columnType, "double") || strings.Contains(columnType, "decimal") {
 		return internal.ColumnTypeFloat, nil
-	}
-
-	if columnType == "tinyint(1)" {
-		return internal.ColumnTypeBoolean, nil
 	}
 
 	if strings.Contains(columnType, "char") || strings.Contains(columnType, "text") {
