@@ -17,7 +17,11 @@ type ConnectionSetting struct {
 	Database string
 }
 
-func Gen(c ConnectionSetting) error {
+type GenSetting struct {
+	DateTimePattern string
+}
+
+func Gen(c ConnectionSetting, g GenSetting) error {
 	db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s:%d)/%s", c.User, c.Password, c.Host, c.Port, c.Database))
 	if err != nil {
 		return err
@@ -29,30 +33,8 @@ func Gen(c ConnectionSetting) error {
 		return err
 	}
 
-	jsonTableSchemas := []JSONSchemaTable{}
-	for _, t := range tables {
-		schema, err := genTableJSONSchema(t)
-		if err != nil {
-			return err
-		}
-
-		jsonTableSchemas = append(jsonTableSchemas, *schema)
-	}
-
-	allTablesSchema, err := genAllTablesJSONSchema(jsonTableSchemas)
-	if err != nil {
-		return err
-	}
-
-	b, err := json.Marshal(allTablesSchema)
-	if err != nil {
-		return err
-	}
-
-	// TODO: output to file
-	fmt.Println(string(b))
-
-	return nil
+	generator := generator{setting: g}
+	return generator.gen(tables)
 }
 
 func getDBSchema(db *sql.DB, database string) ([]Table, error) {
@@ -144,6 +126,37 @@ type Table struct {
 	Columns []Column
 }
 
+type generator struct {
+	setting GenSetting
+}
+
+func (g *generator) gen(tables []Table) error {
+	jsonTableSchemas := []JSONSchemaTable{}
+	for _, t := range tables {
+		schema, err := g.genTableJSONSchema(t)
+		if err != nil {
+			return err
+		}
+
+		jsonTableSchemas = append(jsonTableSchemas, *schema)
+	}
+
+	allTablesSchema, err := g.genAllTablesJSONSchema(jsonTableSchemas)
+	if err != nil {
+		return err
+	}
+
+	b, err := json.Marshal(allTablesSchema)
+	if err != nil {
+		return err
+	}
+
+	// TODO: output to file
+	fmt.Println(string(b))
+
+	return nil
+}
+
 func (t Table) String() string {
 	columns := []string{}
 	for _, c := range t.Columns {
@@ -229,10 +242,12 @@ type JSONSchemaTable struct {
 }
 
 type JSONSchemaColumn struct {
-	Type      JSONSchemaType `json:"type"`
-	MaxLength int            `json:"maxLength,omitempty"`
-	Enum      []string       `json:"enum,omitempty"`
-	Format    string         `json:"format,omitempty"`
+	Type        JSONSchemaType `json:"type"`
+	MaxLength   int            `json:"maxLength,omitempty"`
+	Enum        []string       `json:"enum,omitempty"`
+	Format      string         `json:"format,omitempty"`
+	Pattern     string         `json:"pattern,omitempty"`
+	Description string         `json:"description,omitempty"`
 }
 
 type JSONSchemaType string
@@ -247,7 +262,7 @@ const (
 	JSONSchemaTypeNull    JSONSchemaType = "null"
 )
 
-func genTableJSONSchema(table Table) (*JSONSchemaTable, error) {
+func (g *generator) genTableJSONSchema(table Table) (*JSONSchemaTable, error) {
 	schema := JSONSchemaTable{
 		Schema:     "http://json-schema.org/draft-07/schema#",
 		Type:       "object",
@@ -281,7 +296,8 @@ func genTableJSONSchema(table Table) (*JSONSchemaTable, error) {
 		}
 
 		if dbColumn.Type == ColumnTypeDatetime {
-			column.Format = "date-time"
+			column.Pattern = g.setting.DateTimePattern
+			column.Description = "(datetime)"
 		}
 
 		if !dbColumn.Nullable && dbColumn.Default == nil {
@@ -320,7 +336,7 @@ type TableArrayJSONSchema struct {
 	Items JSONSchemaTable `json:"items"`
 }
 
-func genAllTablesJSONSchema(tables []JSONSchemaTable) (AllTablesJSONSchema, error) {
+func (g *generator) genAllTablesJSONSchema(tables []JSONSchemaTable) (AllTablesJSONSchema, error) {
 	schema := AllTablesJSONSchema{
 		Schema:     "http://json-schema.org/draft-07/schema#",
 		Type:       "object",
