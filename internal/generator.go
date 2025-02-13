@@ -61,6 +61,7 @@ type JSONSchemaObject struct {
 	Pattern     string                      `json:"pattern,omitempty"`
 	Items       *JSONSchemaObject           `json:"items,omitempty"`
 	Ref         string                      `json:"$ref,omitempty"`
+	AnyOf       []JSONSchemaObject          `json:"anyOf,omitempty"`
 }
 
 type JSONSchemaType string
@@ -73,6 +74,10 @@ const (
 	JSONSchemaTypeObject  JSONSchemaType = "object"
 	JSONSchemaTypeArray   JSONSchemaType = "array"
 	JSONSchemaTypeNull    JSONSchemaType = "null"
+)
+
+const (
+	TestFixturesRaw = "testfixtures-raw"
 )
 
 func (g *generator) genTableJSONSchema(table Table) (*JSONSchemaObject, error) {
@@ -116,7 +121,12 @@ func (g *generator) genTableJSONSchema(table Table) (*JSONSchemaObject, error) {
 			schema.Required = append(schema.Required, dbColumn.Name)
 		}
 
-		schema.Properties[dbColumn.Name] = column
+		schema.Properties[dbColumn.Name] = JSONSchemaObject{
+			AnyOf: []JSONSchemaObject{
+				column,
+				{Ref: "#/definitions/" + TestFixturesRaw},
+			},
+		}
 	}
 
 	return &schema, nil
@@ -139,10 +149,15 @@ func convertIntoJSONSchemaType(t ColumnType) (JSONSchemaType, error) {
 
 func (g *generator) genAllTablesJSONSchema(tables []JSONSchemaObject) (JSONSchemaObject, error) {
 	schema := JSONSchemaObject{
-		Schema:      "http://json-schema.org/draft-07/schema#",
-		Type:        JSONSchemaTypeObject,
-		Properties:  map[string]JSONSchemaObject{},
-		Definitions: map[string]JSONSchemaObject{},
+		Schema:     "http://json-schema.org/draft-07/schema#",
+		Type:       JSONSchemaTypeObject,
+		Properties: map[string]JSONSchemaObject{},
+		Definitions: map[string]JSONSchemaObject{
+			TestFixturesRaw: {
+				Type:    JSONSchemaTypeString,
+				Pattern: "RAW=.*",
+			},
+		},
 	}
 
 	for _, t := range tables {
