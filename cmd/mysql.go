@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"github.com/spf13/cobra"
+	"github.com/takaaa220/db2jsonschema/internal"
 	"github.com/takaaa220/db2jsonschema/internal/mysql"
 )
 
@@ -19,18 +20,19 @@ var mysqlCmd = &cobra.Command{
 	Use:   "mysql",
 	Short: "convert mysql schema to json schema",
 	Run: func(cmd *cobra.Command, args []string) {
-		err := mysql.Gen(
-			mysql.ConnectionSetting{
+		generator := internal.NewGenerator(
+			internal.GenSetting{
+				DateTimePattern: *dateTimePattern,
+			},
+			mysql.NewMysqlDialect(mysql.ConnectionSetting{
 				Host:     *host,
 				Port:     *port,
 				User:     *user,
 				Password: *password,
 				Database: *database,
-			},
-			mysql.GenSetting{
-				DateTimePattern: *dateTimePattern,
-			},
+			}),
 		)
+		err := generator.Gen()
 		if err != nil {
 			panic(err)
 		}
