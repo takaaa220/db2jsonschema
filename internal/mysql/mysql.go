@@ -306,20 +306,28 @@ func convertIntoJSONSchemaType(t ColumnType) (JSONSchemaType, error) {
 }
 
 type AllTablesJSONSchema struct {
-	Schema     string                     `json:"$schema"`
-	Type       JSONSchemaType             `json:"type"`
-	Properties map[string]JSONSchemaTable `json:"properties"`
+	Schema     string                          `json:"$schema"`
+	Type       JSONSchemaType                  `json:"type"`
+	Properties map[string]TableArrayJSONSchema `json:"properties"`
+}
+
+type TableArrayJSONSchema struct {
+	Type  string          `json:"type"`
+	Items JSONSchemaTable `json:"items"`
 }
 
 func genAllTablesJSONSchema(tables []JSONSchemaTable) (AllTablesJSONSchema, error) {
 	schema := AllTablesJSONSchema{
 		Schema:     "http://json-schema.org/draft-07/schema#",
 		Type:       "object",
-		Properties: map[string]JSONSchemaTable{},
+		Properties: map[string]TableArrayJSONSchema{},
 	}
 
 	for _, t := range tables {
-		schema.Properties[t.Title] = t
+		schema.Properties[t.Title] = TableArrayJSONSchema{
+			Type:  "array",
+			Items: t,
+		}
 	}
 
 	return schema, nil
