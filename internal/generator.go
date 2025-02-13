@@ -18,17 +18,17 @@ func NewGenerator(setting GenSetting, dialect dialect) *generator {
 	return &generator{setting: setting, dialect: dialect}
 }
 
-func (g *generator) Gen() error {
+func (g *generator) Gen() ([]byte, error) {
 	tables, err := g.dialect.GetTables()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	jsonTableSchemas := []JSONSchemaTable{}
 	for _, t := range tables {
 		schema, err := g.genTableJSONSchema(t)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		jsonTableSchemas = append(jsonTableSchemas, *schema)
@@ -36,26 +36,23 @@ func (g *generator) Gen() error {
 
 	allTablesSchema, err := g.genAllTablesJSONSchema(jsonTableSchemas)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	b, err := json.Marshal(allTablesSchema)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	// TODO: output to file
-	fmt.Println(string(b))
-
-	return nil
+	return b, nil
 }
 
 type JSONSchemaTable struct {
-	Schema     string                      `json:"$schema"`
-	Type       JSONSchemaType              `json:"type"`
-	Title      string                      `json:"title"`
-	Properties map[string]JSONSchemaColumn `json:"properties"`
-	Required   []string                    `json:"required"`
+	Schema     string                      `json:"$schema,omitempty"`
+	Type       JSONSchemaType              `json:"type,omitempty"`
+	Title      string                      `json:"title,omitempty"`
+	Properties map[string]JSONSchemaColumn `json:"properties,omitempty"`
+	Required   []string                    `json:"required,omitempty"`
 }
 
 type JSONSchemaColumn struct {
@@ -81,7 +78,6 @@ const (
 
 func (g *generator) genTableJSONSchema(table Table) (*JSONSchemaTable, error) {
 	schema := JSONSchemaTable{
-		Schema:     "http://json-schema.org/draft-07/schema#",
 		Type:       "object",
 		Title:      table.Name,
 		Properties: map[string]JSONSchemaColumn{},
@@ -143,9 +139,10 @@ func convertIntoJSONSchemaType(t ColumnType) (JSONSchemaType, error) {
 }
 
 type AllTablesJSONSchema struct {
-	Schema     string                          `json:"$schema"`
-	Type       JSONSchemaType                  `json:"type"`
-	Properties map[string]TableArrayJSONSchema `json:"properties"`
+	Schema      string                          `json:"$schema"`
+	Type        JSONSchemaType                  `json:"type"`
+	Properties  map[string]TableArrayJSONSchema `json:"properties"`
+	Definitions map[string]JSONSchemaTable      `json:"definitions,omitempty"`
 }
 
 type TableArrayJSONSchema struct {

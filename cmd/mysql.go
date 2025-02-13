@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 	"github.com/takaaa220/db2jsonschema/internal"
 	"github.com/takaaa220/db2jsonschema/internal/mysql"
@@ -32,10 +34,12 @@ var mysqlCmd = &cobra.Command{
 				Database: *database,
 			}),
 		)
-		err := generator.Gen()
+		res, err := generator.Gen()
 		if err != nil {
 			panic(err)
 		}
+
+		fmt.Println(string(res))
 	},
 }
 
