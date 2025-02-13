@@ -60,6 +60,7 @@ type JSONSchemaObject struct {
 	Format      string                      `json:"format,omitempty"`
 	Pattern     string                      `json:"pattern,omitempty"`
 	Items       *JSONSchemaObject           `json:"items,omitempty"`
+	Ref         string                      `json:"$ref,omitempty"`
 }
 
 type JSONSchemaType string
@@ -138,17 +139,21 @@ func convertIntoJSONSchemaType(t ColumnType) (JSONSchemaType, error) {
 
 func (g *generator) genAllTablesJSONSchema(tables []JSONSchemaObject) (JSONSchemaObject, error) {
 	schema := JSONSchemaObject{
-		Schema:     "http://json-schema.org/draft-07/schema#",
-		Type:       JSONSchemaTypeObject,
-		Properties: map[string]JSONSchemaObject{},
+		Schema:      "http://json-schema.org/draft-07/schema#",
+		Type:        JSONSchemaTypeObject,
+		Properties:  map[string]JSONSchemaObject{},
+		Definitions: map[string]JSONSchemaObject{},
 	}
 
 	for _, t := range tables {
 		t := t
 		schema.Properties[t.Title] = JSONSchemaObject{
-			Type:  JSONSchemaTypeArray,
-			Items: &t,
+			Type: JSONSchemaTypeArray,
+			Items: &JSONSchemaObject{
+				Ref: fmt.Sprintf("#/definitions/%s", t.Title),
+			},
 		}
+		schema.Definitions[t.Title] = t
 	}
 
 	return schema, nil
