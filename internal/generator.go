@@ -107,6 +107,12 @@ func (g *generator) genTableJSONSchema(table Table) (*JSONSchemaObject, error) {
 				Enum: []any{0, 1},
 			})
 		}
+		if t == JSONSchemaTypeObject {
+			optionalColumns = append(optionalColumns, JSONSchemaObject{
+				Type:    JSONSchemaTypeString,
+				Pattern: "{.*}",
+			})
+		}
 
 		if len(dbColumn.Enum) != 0 {
 			column.Enum = dbColumn.Enum
@@ -153,8 +159,10 @@ func convertIntoJSONSchemaType(t ColumnType) (JSONSchemaType, error) {
 		return JSONSchemaTypeNumber, nil
 	case ColumnTypeBoolean:
 		return JSONSchemaTypeBoolean, nil
-	case ColumnTypeString, ColumnTypeEnum, ColumnTypeDate, ColumnTypeDatetime, ColumnTypeJSON:
+	case ColumnTypeString, ColumnTypeEnum, ColumnTypeDate, ColumnTypeDatetime:
 		return JSONSchemaTypeString, nil
+	case ColumnTypeJSON:
+		return JSONSchemaTypeObject, nil
 	default:
 		return "", fmt.Errorf("unsupported type: %s", t)
 	}
