@@ -131,9 +131,9 @@ func (g *generator) genTableJSONSchema(table Table) (*JSONSchemaObject, error) {
 			column.Description = "(datetime)"
 		}
 
-		if dbColumn.Nullable {
+		if dbColumn.Nullable || (dbColumn.Default != nil) {
 			optionalColumns = append(optionalColumns, JSONSchemaObject{Type: JSONSchemaTypeNull})
-		} else if dbColumn.Default != nil {
+		} else {
 			schema.Required = append(schema.Required, dbColumn.Name)
 		}
 
